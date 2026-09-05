@@ -85,7 +85,7 @@ function updatePointer(event) {
 
     if (textCoord) {
         textCoord.textContent =
-            `x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
+            `v1; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
     }
 }
 
