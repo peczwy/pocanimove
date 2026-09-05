@@ -21,8 +21,11 @@
 
 
     window.getSpritePosition = function(frameIndex) {
-        const col = frameIndex % SPRITE_COLS;
-        const row = Math.floor(frameIndex / SPRITE_COLS);
+        const col =
+            frameIndex % SPRITE_COLS;
+
+        const row =
+            Math.floor(frameIndex / SPRITE_COLS);
 
         return {
             col,

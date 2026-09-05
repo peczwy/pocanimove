@@ -18,17 +18,3 @@
 	font-smooth: never;
 	-webkit-font-smoothing : none;
 }
-
-#sprite {
-    width: 100vw;
-    height: 100vh;
-
-    background-repeat: no-repeat;
-
-    background-position: 0 0;
-
-    touch-action: none;
-
-    user-select: none;
-    -webkit-user-select: none;
-}

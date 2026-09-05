@@ -1,0 +1,56 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+
+    width: 100%;
+    height: 100%;
+
+    overflow: hidden;
+}
+
+body {
+    position: relative;
+}
+
+#sprite-container {
+    width: 100vw;
+    height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    touch-action: none;
+
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#sprite {
+    flex: 0 0 auto;
+
+    background-repeat: no-repeat;
+    background-position: 0 0;
+}
+
+.video_text {
+    position: fixed;
+
+    left: 10px;
+    bottom: 10px;
+
+    z-index: 1000;
+
+    padding: 6px 10px;
+
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+
+    font-family: monospace;
+    font-size: 14px;
+
+    pointer-events: none;
+}
