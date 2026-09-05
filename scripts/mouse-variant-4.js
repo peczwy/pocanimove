@@ -37,12 +37,18 @@ video.addEventListener("pointerdown", event => {
     video.setPointerCapture(event.pointerId);
 
     updatePointer(event);
+
+    /*
+     * Uruchamiamy dekoder w ramach bezpośredniej
+     * interakcji użytkownika.
+     */
+    video.play().catch(() => {});
+
     requestUpdate();
 });
 
 
 video.addEventListener("pointermove", event => {
-    // Mouse działa również bez wciśniętego przycisku.
     if (event.pointerType !== "mouse" && !pointerActive) {
         return;
     }
@@ -57,12 +63,19 @@ video.addEventListener("pointerup", event => {
 
     pointerActive = false;
 
+    /*
+     * Dopiero po zakończeniu gestu zatrzymujemy film.
+     */
+    video.pause();
+
     requestUpdate();
 });
 
 
 video.addEventListener("pointercancel", () => {
     pointerActive = false;
+
+    video.pause();
 });
 
 
@@ -121,35 +134,5 @@ function refresh(x, y) {
 
     const targetTime = duration * percent;
 
-    seekVideo(targetTime);
-}
-
-
-function seekVideo(targetTime) {
-    if (typeof video.fastSeek === "function") {
-        video.fastSeek(targetTime);
-    } else {
-        video.currentTime = targetTime;
-    }
-
-    /*
-     * Na części urządzeń mobilnych samo ustawienie currentTime
-     * nie powoduje natychmiastowego odrysowania klatki.
-     *
-     * Krótkie play/pause może wymusić aktualizację obrazu.
-     */
-    const playPromise = video.play();
-
-    if (playPromise !== undefined) {
-        playPromise
-            .then(() => {
-                video.pause();
-            })
-            .catch(() => {
-                // Jeśli play() zostanie zablokowane,
-                // pozostajemy przy zwykłym seeku.
-            });
-    } else {
-        video.pause();
-    }
+    video.currentTime = targetTime;
 }
