@@ -1,16 +1,13 @@
-const FPS = 23;
-
 const video = document.getElementById("video");
 const textCoord = document.getElementById("text_coord");
-
-const throttle = createThrottler(FPS);
 
 let pointerActive = false;
 
 let pointerX = 0;
 let pointerY = 0;
 
-let animationFrameRequested = false;
+let targetTime = null;
+let seekPending = false;
 
 let viewportWidth = window.innerWidth;
 let viewportHeight = window.innerHeight;
@@ -37,14 +34,7 @@ video.addEventListener("pointerdown", event => {
     video.setPointerCapture(event.pointerId);
 
     updatePointer(event);
-
-    /*
-     * Uruchamiamy dekoder w ramach bezpośredniej
-     * interakcji użytkownika.
-     */
-    video.play().catch(() => {});
-
-    requestUpdate();
+    updateTargetTime(event.clientX, event.clientY);
 });
 
 
@@ -54,28 +44,20 @@ video.addEventListener("pointermove", event => {
     }
 
     updatePointer(event);
-    requestUpdate();
+    updateTargetTime(event.clientX, event.clientY);
 });
 
 
 video.addEventListener("pointerup", event => {
     updatePointer(event);
+    updateTargetTime(event.clientX, event.clientY);
 
     pointerActive = false;
-
-    /*
-     * Dopiero po zakończeniu gestu zatrzymujemy film.
-     */
-    video.pause();
-
-    requestUpdate();
 });
 
 
 video.addEventListener("pointercancel", () => {
     pointerActive = false;
-
-    video.pause();
 });
 
 
@@ -85,35 +67,12 @@ function updatePointer(event) {
 
     if (textCoord) {
         textCoord.textContent =
-            `v1; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
+            `v4; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
     }
 }
 
 
-function requestUpdate() {
-    if (animationFrameRequested) {
-        return;
-    }
-
-    animationFrameRequested = true;
-
-    requestAnimationFrame(update);
-}
-
-
-function update(timestamp) {
-    animationFrameRequested = false;
-
-    if (!throttle(timestamp)) {
-        requestUpdate();
-        return;
-    }
-
-    refresh(pointerX, pointerY);
-}
-
-
-function refresh(x, y) {
+function updateTargetTime(x, y) {
     const duration = video.duration;
 
     if (!Number.isFinite(duration) || duration <= 0) {
@@ -132,7 +91,63 @@ function refresh(x, y) {
     const percent =
         (angle + Math.PI) % (Math.PI * 2) / (Math.PI * 2);
 
-    const targetTime = duration * percent;
+    targetTime = duration * percent;
 
-    video.currentTime = targetTime;
+    requestSeek();
+}
+
+
+function requestSeek() {
+    if (seekPending) {
+        return;
+    }
+
+    if (targetTime === null) {
+        return;
+    }
+
+    seekPending = true;
+
+    const requestedTime = targetTime;
+
+    video.currentTime = requestedTime;
+
+    if (typeof video.requestVideoFrameCallback === "function") {
+        video.requestVideoFrameCallback(() => {
+            seekPending = false;
+
+            /*
+             * W czasie renderowania poprzedniej klatki
+             * palec mógł przesunąć się dalej.
+             *
+             * Jeżeli targetTime się zmienił,
+             * wykonujemy kolejny seek.
+             */
+            if (
+                targetTime !== null &&
+                Math.abs(targetTime - requestedTime) > 0.001
+            ) {
+                requestSeek();
+            }
+        });
+    } else {
+        /*
+         * Fallback dla przeglądarek bez
+         * requestVideoFrameCallback().
+         */
+        video.addEventListener(
+            "seeked",
+            () => {
+                seekPending = false;
+
+                if (
+                    targetTime !== null &&
+                    Math.abs(targetTime - requestedTime) > 0.001
+                ) {
+                    requestSeek();
+                }
+            },
+            { once: true }
+        );
+    }
 }
