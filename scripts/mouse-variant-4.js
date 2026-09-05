@@ -37,20 +37,17 @@ video.addEventListener("pointerdown", event => {
     video.setPointerCapture(event.pointerId);
 
     updatePointer(event);
-
     requestUpdate();
 });
 
 
 video.addEventListener("pointermove", event => {
-
-    // Mouse ma działać również bez wciśniętego przycisku.
+    // Mouse działa również bez wciśniętego przycisku.
     if (event.pointerType !== "mouse" && !pointerActive) {
         return;
     }
 
     updatePointer(event);
-
     requestUpdate();
 });
 
@@ -95,12 +92,6 @@ function update(timestamp) {
     animationFrameRequested = false;
 
     if (!throttle(timestamp)) {
-        /*
-         * Nie pozwalamy zgubić ostatniej pozycji.
-         *
-         * Jeżeli throttle jeszcze blokuje aktualizację,
-         * prosimy o następną klatkę.
-         */
         requestUpdate();
         return;
     }
@@ -119,36 +110,46 @@ function refresh(x, y) {
     const dx = x - halfWidth;
     const dy = y - halfHeight;
 
-    /*
-     * Środek ekranu nie ma jednoznacznego kąta.
-     */
     if (dx === 0 && dy === 0) {
         return;
     }
 
-    /*
-     * atan2 daje kąt względem osi X:
-     *
-     *      -PI ... PI
-     *
-     * Zamieniamy go na zakres:
-     *
-     *       0 ... 2PI
-     */
-    let angle = Math.atan2(dy, dx);
+    const angle = Math.atan2(dy, dx);
 
-    if (angle < 0) {
-        angle += Math.PI * 2;
+    const percent =
+        (angle + Math.PI) % (Math.PI * 2) / (Math.PI * 2);
+
+    const targetTime = duration * percent;
+
+    seekVideo(targetTime);
+}
+
+
+function seekVideo(targetTime) {
+    if (typeof video.fastSeek === "function") {
+        video.fastSeek(targetTime);
+    } else {
+        video.currentTime = targetTime;
     }
 
     /*
-     * Nas interesuje zakres:
+     * Na części urządzeń mobilnych samo ustawienie currentTime
+     * nie powoduje natychmiastowego odrysowania klatki.
      *
-     *      0 ... 1
+     * Krótkie play/pause może wymusić aktualizację obrazu.
      */
-    const percent = angle / (Math.PI * 2);
+    const playPromise = video.play();
 
-    const currentTime = duration * percent;
-
-    video.currentTime = currentTime;
+    if (playPromise !== undefined) {
+        playPromise
+            .then(() => {
+                video.pause();
+            })
+            .catch(() => {
+                // Jeśli play() zostanie zablokowane,
+                // pozostajemy przy zwykłym seeku.
+            });
+    } else {
+        video.pause();
+    }
 }
