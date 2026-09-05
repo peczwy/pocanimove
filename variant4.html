@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+
+    <link rel="stylesheet" href="styles/style.css">
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #video {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <video
+        muted
+        playsinline
+        preload="auto"
+        class="video"
+        id="video">
+        <source src="vid/proof.mp4" type="video/mp4">
+    </video>
+
+    <div class="video_text" id="text_coord">
+        The coords will be here
+    </div>
+
+    <script src="scripts/common-2.js"></script>
+    <script src="scripts/mouse-variant-4.js"></script>
+
+</body>
+</html>
