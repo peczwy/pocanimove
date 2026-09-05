@@ -1,6 +1,11 @@
 const video = document.getElementById("video");
 const textCoord = document.getElementById("text_coord");
 
+const params = new URLSearchParams(window.location.search);
+
+const FPS = Number(params.get("fps")) || 23;
+const FRAME_INTERVAL = 1000 / FPS;
+
 let pointerActive = false;
 
 let pointerX = 0;
@@ -8,6 +13,8 @@ let pointerY = 0;
 
 let targetTime = null;
 let seekPending = false;
+
+let lastSeekAt = -Infinity;
 
 let viewportWidth = window.innerWidth;
 let viewportHeight = window.innerHeight;
@@ -67,7 +74,7 @@ function updatePointer(event) {
 
     if (textCoord) {
         textCoord.textContent =
-            `v4; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
+            `v5; ${FPS} FPS; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
     }
 }
 
@@ -98,15 +105,24 @@ function updateTargetTime(x, y) {
 
 
 function requestSeek() {
-    if (seekPending) {
+    if (seekPending || targetTime === null) {
         return;
     }
 
-    if (targetTime === null) {
+    const now = performance.now();
+    const elapsed = now - lastSeekAt;
+
+    if (elapsed < FRAME_INTERVAL) {
+        setTimeout(
+            requestSeek,
+            FRAME_INTERVAL - elapsed
+        );
+
         return;
     }
 
     seekPending = true;
+    lastSeekAt = performance.now();
 
     const requestedTime = targetTime;
 
@@ -116,13 +132,6 @@ function requestSeek() {
         video.requestVideoFrameCallback(() => {
             seekPending = false;
 
-            /*
-             * W czasie renderowania poprzedniej klatki
-             * palec mógł przesunąć się dalej.
-             *
-             * Jeżeli targetTime się zmienił,
-             * wykonujemy kolejny seek.
-             */
             if (
                 targetTime !== null &&
                 Math.abs(targetTime - requestedTime) > 0.001
@@ -131,10 +140,6 @@ function requestSeek() {
             }
         });
     } else {
-        /*
-         * Fallback dla przeglądarek bez
-         * requestVideoFrameCallback().
-         */
         video.addEventListener(
             "seeked",
             () => {
