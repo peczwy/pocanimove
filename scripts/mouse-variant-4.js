@@ -4,8 +4,13 @@
 
     const params = new URLSearchParams(window.location.search);
 
-    const FPS = Number(params.get("fps")) || 23;
-    const FRAME_INTERVAL = 1000 / FPS;
+    const REQUESTED_FPS = Number(params.get("fps")) || 23;
+
+    const MIN_FPS = 6;
+    const DEBUG_FPS = 5;
+
+    let effectiveFps = REQUESTED_FPS;
+    let frameInterval = 1000 / effectiveFps;
 
     let pointerActive = false;
 
@@ -13,10 +18,13 @@
     let pointerY = 0;
 
     let targetTime = null;
+    let lastRequestedTime = null;
+
     let seekPending = false;
+    let seekTimer = null;
 
     let lastSeekAt = -Infinity;
-    let seekTimer = null;
+    let lastDebugAt = -Infinity;
 
     let viewportWidth = window.innerWidth;
     let viewportHeight = window.innerHeight;
@@ -74,9 +82,17 @@
         pointerX = event.clientX;
         pointerY = event.clientY;
 
-        if (textCoord) {
+        const now = performance.now();
+        const debugInterval = 1000 / DEBUG_FPS;
+
+        if (
+            textCoord &&
+            now - lastDebugAt >= debugInterval
+        ) {
+            lastDebugAt = now;
+
             textCoord.textContent =
-                `v6; ${FPS} FPS; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
+                `v7; requested: ${REQUESTED_FPS} FPS; effective: ${effectiveFps.toFixed(1)} FPS; x: ${pointerX.toFixed(0)}, y: ${pointerY.toFixed(0)}`;
         }
     }
 
@@ -111,29 +127,53 @@
             return;
         }
 
+        /*
+         * Nie seekujemy, jeśli zmiana jest mniejsza
+         * niż jedna "logiczna klatka".
+         */
+        if (lastRequestedTime !== null) {
+            const minTimeDelta = 1 / effectiveFps;
+
+            if (
+                Math.abs(targetTime - lastRequestedTime) < minTimeDelta
+            ) {
+                return;
+            }
+        }
+
         const now = performance.now();
         const elapsed = now - lastSeekAt;
 
-        if (elapsed < FRAME_INTERVAL) {
+        if (elapsed < frameInterval) {
             if (seekTimer === null) {
                 seekTimer = setTimeout(() => {
                     seekTimer = null;
                     requestSeek();
-                }, FRAME_INTERVAL - elapsed);
+                }, frameInterval - elapsed);
             }
 
             return;
         }
 
         seekPending = true;
-        lastSeekAt = now;
 
         const requestedTime = targetTime;
+        const seekStartedAt = performance.now();
+
+        lastRequestedTime = requestedTime;
+        lastSeekAt = seekStartedAt;
 
         video.currentTime = requestedTime;
 
         if (typeof video.requestVideoFrameCallback === "function") {
             video.requestVideoFrameCallback(() => {
+                const seekFinishedAt = performance.now();
+
+                const renderTime =
+                    seekFinishedAt - seekStartedAt;
+
+                adaptFps(renderTime);
+
                 seekPending = false;
 
                 if (
@@ -147,6 +187,13 @@
             video.addEventListener(
                 "seeked",
                 () => {
+                    const seekFinishedAt = performance.now();
+
+                    const renderTime =
+                        seekFinishedAt - seekStartedAt;
+
+                    adaptFps(renderTime);
+
                     seekPending = false;
 
                     if (
@@ -159,5 +206,41 @@
                 { once: true }
             );
         }
+    }
+
+
+    function adaptFps(renderTimeMs) {
+        if (!Number.isFinite(renderTimeMs) || renderTimeMs <= 0) {
+            return;
+        }
+
+        /*
+         * Ile FPS urządzenie realnie jest w stanie wyrenderować.
+         */
+        const measuredFps = 1000 / renderTimeMs;
+
+        /*
+         * Zostawiamy trochę zapasu, żeby urządzenie
+         * nie pracowało cały czas na 100%.
+         */
+        const safeFps = measuredFps * 0.9;
+
+        /*
+         * Adaptive FPS:
+         *
+         * - nigdy więcej niż REQUESTED_FPS
+         * - nigdy mniej niż MIN_FPS
+         * - zmieniamy stopniowo, żeby FPS nie skakał
+         */
+        const targetFps = Math.max(
+            MIN_FPS,
+            Math.min(REQUESTED_FPS, safeFps)
+        );
+
+        effectiveFps =
+            effectiveFps * 0.8 +
+            targetFps * 0.2;
+
+        frameInterval = 1000 / effectiveFps;
     }
 })();
